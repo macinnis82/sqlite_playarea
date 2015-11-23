@@ -1,14 +1,21 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Nov 22 21:37:42 2015
+
+@author: Administrator
+"""
+
 import sqlite3 as lite
 import pandas as pd
 
 con = lite.connect('getting_started.db')
 
 cities = (
-	('New York City', 'NY'), ('Boston', 'MA'), ('Chicago', 'IL'),
+    ('New York City', 'NY'), ('Boston', 'MA'), ('Chicago', 'IL'),
     ('Miami', 'FL'), ('Dallas', 'TX'), ('Seattle', 'WA'),
     ('Portland', 'OR'), ('San Francisco', 'CA'), ('Los Angeles', 'CA'),
-	('Washington', 'DC'), ('Houston', 'TX'),  ('Las Vegas', 'NV'), 
-	('Atlanta', 'GA')
+    ('Washington', 'DC'), ('Houston', 'TX'),  ('Las Vegas', 'NV'), 
+    ('Atlanta', 'GA')
 )
 
 weather = (
@@ -27,29 +34,31 @@ weather = (
 	('Atlanta', 2013, 'July', 'January', 51)
 )
 
-with con:
-	cur = con.cursor()
+cur = con.cursor()
 	
-	# Drop Tables if they already exist
-	cur.execute("DROP TABLE IF EXISTS cities")
-	cur.execute("DROP TABLE IF EXISTS weather")
+ # Drop Tables if they already exist
+cur.execute("DROP TABLE IF EXISTS cities")
+cur.execute("DROP TABLE IF EXISTS weather")
 	
-	# Create tables
-	cur.execute("CREATE TABLE cities (name text, state text)")
-	cur.execute("CREATE TABLE weather (city text, year integer, warm_month text, cold_month text, average_high integer)")
+ # Create tables
+cur.execute("CREATE TABLE cities (name text, state text)")
+cur.execute("CREATE TABLE weather (city text, year integer, warm_month text, cold_month text, average_high integer)")
 	
-	# Populate Tables with values
-	cur.executemany("INSERT INTO cities VALUES(?,?)", cities)
-	cur.executemany("INSERT INTO weather VALUES(?,?,?,?,?)", weather)
-	
-	# Query the tables
-	cur.execute("SELECT name, state from cities inner join weather on name=city where warm_month='July'")
-	
-	rows = cur.fetchall()
-	cols = [desc[0] for desc in cur.description]
-	df = pd.DataFrame(rows, columns=cols)
-	
-	for row in df.iterrows():
-		index, data = row
-		print 'The cities that are the warmest in July are: %s, %s' % (data['name'], data['state'])
-	#print("The cities that are the warmest in July are: {}, {}".format(df['name'], df['state']))
+ # Populate Tables with values
+cur.executemany("INSERT INTO cities VALUES(?,?)", cities)
+cur.executemany("INSERT INTO weather VALUES(?,?,?,?,?)", weather)
+
+ # Query the tables
+cities = pd.read_sql("select * from cities", con)
+weather = pd.read_sql("select * from weather", con)
+
+ # Merge cities and weather
+combined = pd.DataFrame.merge(cities, weather, how='inner', left_on = 'name', right_on = 'city')
+combined.drop('city', axis=1, inplace=True)
+
+ # pull out records where the warm_month=July
+combined_july = combined[combined['warm_month'] == 'July']
+output = combined_july.apply(lambda x: '%s, %s' % (x['name'], x['state']), axis=1) 
+
+#print output.tolist()
+print "The cities that are warmest in July are:", ', '.join(output.tolist())
